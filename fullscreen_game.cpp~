@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <SDL2/SDL_image.h>
 
 #define VIRTUAL_WIDTH 1920   // Design resolution width
 #define VIRTUAL_HEIGHT 1080  // Design resolution height
@@ -22,7 +23,14 @@ bool initDisplay(GameDisplay* display) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return false;
     }
-    
+
+    // Initialize SDL_image
+    if (IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) != (IMG_INIT_PNG | IMG_INIT_JPG)) {
+      printf("SDL_image could not initialize! IMG_Error: %s\n", IMG_GetError());
+      SDL_Quit();
+      return -1;
+    }    
+
     // Create window
     display->window = SDL_CreateWindow("SDL Platform Game", 
                                       SDL_WINDOWPOS_UNDEFINED, 
@@ -88,7 +96,10 @@ void screenToGameCoordinates(GameDisplay* display, int screenX, int screenY, int
 void closeDisplay(GameDisplay* display) {
     SDL_DestroyRenderer(display->renderer);
     SDL_DestroyWindow(display->window);
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(image);
     SDL_Quit();
+
 }
 
 int main(int argc, char* args[]) {
@@ -102,7 +113,15 @@ int main(int argc, char* args[]) {
     
     // Player position and size
     SDL_Rect playerRect = {VIRTUAL_WIDTH/2 - 25, VIRTUAL_HEIGHT/2 - 25, 50, 50};
-    
+    SDL_Rect mapTile = {VIRTUAL_WIDTH/2 - 25, VIRTUAL_HEIGHT/2 - 25, 50, 50};
+    SDL_Surface* image = SDL_LoadBMP("images/tile_00.bmp");
+    if (image == NULL) {
+        printf("Unable to load image! IMG_Error: %s\n", IMG_GetError());
+	SDL_Quit();
+	return -1;
+    }
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(display.renderer, image);
+
     // Main game loop
     bool quit = false;
     SDL_Event e;
@@ -171,11 +190,18 @@ int main(int argc, char* args[]) {
         for (int y = 0; y < VIRTUAL_HEIGHT; y += 50) {
             SDL_RenderDrawLine(display.renderer, 0, y, VIRTUAL_WIDTH, y);
         }
-
+	
+	//initial attempt at creating a floor
 	for(int x = 0; x< VIRTUAL_WIDTH; x +=50) {
-	  SDL_SetRenderDrawColor(display.rendered, 0,255,0, 255);
-	  SDL_RenderFillRect(display,renderer, 
+	  SDL_SetRenderDrawColor(display.renderer, 0,255,0, 255);
+	  mapTile.y = VIRTUAL_HEIGHT -50;
+	  mapTile.x = x;
+	  SDL_RenderFillRect(display.renderer, &mapTile);
         }
+
+	SDL_RenderCopy(display.renderer, texture, NULL, NULL);
+	SDL_RenderPresent(display.renderer);
+	
         // Draw the player
         SDL_SetRenderDrawColor(display.renderer, 255, 100, 100, 255);
         SDL_RenderFillRect(display.renderer, &playerRect);
@@ -186,6 +212,6 @@ int main(int argc, char* args[]) {
     
     // Clean up
     closeDisplay(&display);
-    
+
     return 0;
 }
